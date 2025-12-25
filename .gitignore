@@ -1,0 +1,30 @@
+# ===== Python cache =====
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ===== Virtual Environment =====
+.venv/
+venv/
+env/
+
+# ===== Environment variables =====
+.env
+.env.*
+
+# ===== Logs =====
+*.log
+
+# ===== Model / ML artifacts =====
+*.pkl
+*.joblib
+*.h5
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.iml
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
