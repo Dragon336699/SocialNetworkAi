@@ -5,6 +5,17 @@ from cassandra.cluster import Cluster
 from fastapi import FastAPI
 from uuid import UUID
 import pyodbc
+from google import genai
+from dotenv import load_dotenv
+import os
+
+from Requests.CaptionRequest import CaptionRequest
+from Requests.SummarizePostRequest import SummarizePostRequest
+
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+
+client = genai.Client(api_key=api_key)
 
 sql_conn = pyodbc.connect(
     "DRIVER={ODBC Driver 17 for SQL Server};"
@@ -120,4 +131,43 @@ def recommend(user_id: UUID):
     return {
         "user_id": user_id,
         "recommendations": data
+    }
+
+@app.post("/post/summary")
+def summarize_post (req: SummarizePostRequest):
+    prompts = f"""
+        Bạn là trợ lý tóm tắt nội dung bài viết mạng xã hội.
+        Tóm tắt nội dung sau trong 3–5 dòng, rõ ý, trung lập.
+        Nội dung:
+        {req.content}
+    """
+
+    response = client.models.generate_content(
+        model = "gemini-2.5-flash",
+        contents = prompts
+    )
+
+    return {
+        "data": response.text
+    }
+
+@app.post("/post/rewrite")
+def summarize_post (req: CaptionRequest):
+    prompts = f"""
+        Bạn là trợ lý viết caption cho mạng xã hội.
+        Viết lại caption sau cho tự nhiên, hấp dẫn hơn.
+        Tone: {req.tone}
+        Giữ nguyên ý, không thêm thông tin mới. Chỉ trả về nội dung mới, không hỏi lại người dùng hay đánh giá caption
+        
+        Caption: 
+        {req.caption}
+    """
+
+    response = client.models.generate_content(
+        model = "gemini-2.5-flash",
+        contents = prompts
+    )
+
+    return {
+        "data": response.text
     }
