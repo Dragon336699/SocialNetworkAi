@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from cassandra.cluster import Cluster
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from uuid import UUID
 import pyodbc
 from google import genai
@@ -124,6 +125,17 @@ def recommend_friends(user_id, top_k=10, threshold=0.6):
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",   # Vite
+        "http://localhost:3000",   # CRA
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/friend/recommend")
 def recommend(user_id: UUID):
     print("API END")
@@ -148,6 +160,7 @@ def summarize_post (req: SummarizePostRequest):
     )
 
     return {
+        "message": "summarize successfully",
         "data": response.text
     }
 
@@ -169,5 +182,6 @@ def summarize_post (req: CaptionRequest):
     )
 
     return {
+        "message": "Rewrite successfully",
         "data": response.text
     }
