@@ -12,6 +12,15 @@ import os
 
 from Requests.CaptionRequest import CaptionRequest
 from Requests.SummarizePostRequest import SummarizePostRequest
+from Requests.QuestionRequest import QuestionRequest
+
+from PrepareForChatbot.embedding import embed_text
+from PrepareForChatbot.chroma_client import get_chroma_client
+from llm_client import call_llm
+from prompt import QA_PROMPT_TEMPLATE
+
+chroma_client = get_chroma_client()
+collection = chroma_client.get_collection("chatbot_docs")
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
@@ -122,6 +131,28 @@ def recommend_friends(user_id, top_k=10, threshold=0.6):
 
     return result[["target_user_id", "probs"]].to_dict(orient="records")
 
+def answer_question(question: str, top_k: int = 3):
+    query_embedding = embed_text(question)
+
+    result = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k
+    )
+
+    documents = result["documents"][0]
+
+    context = "\n\n".join(documents)
+
+    # 3. Build prompt
+    prompt = QA_PROMPT_TEMPLATE.format(
+        context=context,
+        question=question
+    )
+
+    # 4. Call LLM
+    answer = call_llm(prompt)
+
+    return answer
 
 app = FastAPI()
 
@@ -165,7 +196,7 @@ def summarize_post (req: SummarizePostRequest):
     }
 
 @app.post("/post/rewrite")
-def summarize_post (req: CaptionRequest):
+def rewrite_post (req: CaptionRequest):
     prompts = f"""
         Bạn là trợ lý viết caption cho mạng xã hội.
         Viết lại caption sau cho tự nhiên, hấp dẫn hơn.
@@ -185,3 +216,10 @@ def summarize_post (req: CaptionRequest):
         "message": "Rewrite successfully",
         "data": response.text
     }
+
+@app.post("/chatbot/qa")
+def ask_chat(req: QuestionRequest):
+    result = answer_question(req.question)
+
+    return result
+

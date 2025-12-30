@@ -1,0 +1,16 @@
+Người dùng cần tạo tài khoản để sử dụng đầy đủ các tính năng của FriCon.
+
+Để tạo tài khoản, người dùng cần cung cấp thông tin cơ bản như tên hiển thị và thông tin đăng nhập bao gồm: Tên, email, mật khẩu, giới tính. Hoặc người dùng có thể đăng nhập nhanh bằng tài khoản goole.
+
+Nếu người dùng quên mật khẩu:
+- Có thể sử dụng chức năng quên mật khẩu ở trang đăng nhập
+- Hệ thống sẽ hỗ trợ đặt lại mật khẩu bằng cách gửi mã OTP về email đã đăng ký
+
+Người dùng có thể cập nhật thông tin cá nhân trong phần trang cá nhân.
+
+Nếu gặp sự cố khi đăng nhập:
+- Kiểm tra lại thông tin đăng nhập
+- Đảm bảo kết nối internet ổn định
+- Thử đăng nhập lại sau
+
+Trong trường hợp tài khoản gặp lỗi hoặc không thể truy cập, người dùng nên liên hệ bộ phận hỗ trợ thông qua email: anhruoia1a1@gmail.com để được trợ giúp.

@@ -1,0 +1,18 @@
+Tên ứng dụng: FriCon (FriendConnect)
+
+FriCon là một ứng dụng mạng xã hội cho phép người dùng kết nối, chia sẻ và tương tác với nhau thông qua bài viết, nhắn tin và các nhóm.
+
+Mục tiêu của FriCon là tạo ra một không gian trực tuyến nơi người dùng có thể thể hiện bản thân, cập nhật cuộc sống cá nhân và theo dõi hoạt động của bạn bè.
+
+Người dùng trên FriCon có thể:
+- Đăng bài viết cá nhân
+- Chia sẻ hình ảnh
+- Bình luận và thả cảm xúc cho bài viết
+- Theo dõi và kết nối với người dùng khác
+- Nhắn tin với nhau, có thể gửi hình ảnh hoặc voice
+- Tạo group, mời người dùng vào group
+- Có chức năng rewrite cho caption và tóm tắt bài viết
+
+Chatbot là một trợ lý ảo hỗ trợ người dùng về những thông tin cơ bản về app
+
+FriCon tập trung vào trải nghiệm đơn giản, dễ sử dụng và phù hợp cho việc giao tiếp hằng ngày trên mạng xã hội.
