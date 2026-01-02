@@ -1,14 +1,15 @@
+import os
 import joblib
 import pandas as pd
+from uuid import UUID
 from datetime import datetime
-from cassandra.cluster import Cluster
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from uuid import UUID
-import pyodbc
-from google import genai
 from dotenv import load_dotenv
-import os
+
+from Database.database_sql import get_sql_connection
+from Database.database_cassandra import get_cassandra_session
 
 from Requests.CaptionRequest import CaptionRequest
 from Requests.SummarizePostRequest import SummarizePostRequest
@@ -19,54 +20,78 @@ from PrepareForChatbot.chroma_client import get_chroma_client
 from llm_client import call_llm
 from prompt import QA_PROMPT_TEMPLATE
 
-chroma_client = get_chroma_client()
-collection = chroma_client.get_collection("chatbot_docs")
+from google import genai
 
+# =====================
+# ENV
+# =====================
 load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
 
-client = genai.Client(api_key=api_key)
+# =====================
+# Lazy singletons
+# =====================
+_model = None
+_chroma_collection = None
+_llm_client = None
 
-sql_conn = pyodbc.connect(
-    "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=LAPTOP-ROIBK9BH\\SQLEXPRESS;"
-    "DATABASE=SocialNetwork;"
-    "Trusted_Connection=yes;"
-    "Encrypt=yes;"
-    "TrustServerCertificate=yes;"
-)
 
-model = joblib.load("friend_recommend_model.pkl")
+def get_model():
+    global _model
+    if _model is None:
+        _model = joblib.load("friend_recommend_model.pkl")
+    return _model
 
-cluster = Cluster(["127.0.0.1"])
-session = cluster.connect("fricon")
 
-def get_friend_list(user_id):
-    query = """
-    SELECT RelatedUserId FROM UserRelation WHERE user_id = ?
-    """
-    cursor = sql_conn.cursor()
-    rows = cursor.execute(query, str(user_id)).fetchall()
-    return set(UUID(row[0]) for row in rows)
+def get_chroma_collection():
+    global _chroma_collection
+    if _chroma_collection is None:
+        chroma_client = get_chroma_client()
+        _chroma_collection = chroma_client.get_collection("chatbot_docs")
+    return _chroma_collection
 
-def get_user_interaction(user_id):
-    counter = """
-    SELECT target_user_id, view_count, search_count, like_count
-    FROM user_interaction_counter WHERE user_id = %s
-    """
 
-    meta = """
-    SELECT target_user_id, last_interaction FROM user_interaction_meta WHERE user_id = %s
-    """
-    
-    try:
-        counter_rows = list(session.execute(counter, (user_id,)))
+def get_llm_client():
+    global _llm_client
+    if _llm_client is None:
+        _llm_client = genai.Client(
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+    return _llm_client
 
-        meta_rows = list(session.execute(meta, (user_id,)))
 
-    except Exception as e:
-        print(f"[ERROR] Exception during Cassandra query: {e}")
-        raise
+# =====================
+# Business logic
+# =====================
+def get_friend_list(user_id: UUID):
+    sql = get_sql_connection()
+    cursor = sql.cursor()
+
+    rows = cursor.execute(
+        "SELECT RelatedUserId FROM UserRelation WHERE user_id = ?",
+        str(user_id)
+    ).fetchall()
+
+    return {UUID(r[0]) for r in rows}
+
+
+def get_user_interaction(user_id: UUID):
+    session = get_cassandra_session()
+
+    counter_rows = session.execute(
+        """
+        SELECT target_user_id, view_count, search_count, like_count
+        FROM user_interaction_counter WHERE user_id = %s
+        """,
+        (user_id,)
+    )
+
+    meta_rows = session.execute(
+        """
+        SELECT target_user_id, last_interaction
+        FROM user_interaction_meta WHERE user_id = %s
+        """,
+        (user_id,)
+    )
 
     meta_map = {
         r.target_user_id: r.last_interaction
@@ -75,18 +100,10 @@ def get_user_interaction(user_id):
 
     now = datetime.utcnow()
     data = []
-    
-    if counter_rows:
-        print("[DEBUG] First counter row:", counter_rows[0])
 
     for r in counter_rows:
-        last_interaction = meta_map.get(r.target_user_id)
-        print("Last interaction: ", last_interaction)
-        if last_interaction:
-            last_interaction = last_interaction.replace(tzinfo=None)
-            last_days = (now - last_interaction).days
-        else:
-            last_days = 999
+        last = meta_map.get(r.target_user_id)
+        last_days = (now - last.replace(tzinfo=None)).days if last else 999
 
         data.append({
             "target_user_id": r.target_user_id,
@@ -96,130 +113,115 @@ def get_user_interaction(user_id):
             "last_days": last_days
         })
 
-    df = pd.DataFrame(data)
-    print("[DEBUG] Created DataFrame. Shape:", df.shape)
-    if not df.empty:
-        print("[DEBUG] DataFrame head:\n", df.head())
-    return df
+    return pd.DataFrame(data)
 
-def recommend_friends(user_id, top_k=10, threshold=0.6):
+
+def recommend_friends(user_id: UUID, top_k=10, threshold=0.6):
     df = get_user_interaction(user_id)
     if df.empty:
-        print("[DEBUG] DataFrame is empty. No recommendations.")
         return []
 
     friend_ids = get_friend_list(user_id)
     df = df[~df["target_user_id"].isin(friend_ids)]
 
+    model = get_model()
+    features = ["view_count", "search_count", "like_count", "last_days"]
 
-    feature_cols = ["view_count", "search_count", "like_count", "last_days"]
-
-    try:
-        probs = model.predict_proba(df[feature_cols])[:, 1]
-    except Exception as e:
-        print(f"[ERROR] Exception during model prediction: {e}")
-        raise
-
+    probs = model.predict_proba(df[features])[:, 1]
     df["probs"] = probs
-    df["label"] = (df["probs"] >= threshold).astype(int)
 
-    result = (
-        df[df["label"] == 1]
+    return (
+        df[df["probs"] >= threshold]
         .sort_values("probs", ascending=False)
-        .head(top_k)
+        .head(top_k)[["target_user_id", "probs"]]
+        .to_dict(orient="records")
     )
 
-    return result[["target_user_id", "probs"]].to_dict(orient="records")
 
-def answer_question(question: str, top_k: int = 3):
+def answer_question(question: str, top_k=3):
+    collection = get_chroma_collection()
+
     query_embedding = embed_text(question)
-
     result = collection.query(
         query_embeddings=[query_embedding],
         n_results=top_k
     )
 
-    documents = result["documents"][0]
+    context = "\n\n".join(result["documents"][0])
 
-    context = "\n\n".join(documents)
-
-    # 3. Build prompt
     prompt = QA_PROMPT_TEMPLATE.format(
         context=context,
         question=question
     )
 
-    # 4. Call LLM
-    answer = call_llm(prompt)
+    return call_llm(prompt)
 
-    return answer
 
+# =====================
+# FastAPI app
+# =====================
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",   # Vite
-        "http://localhost:3000",   # CRA
+        "http://localhost:5173",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# =====================
+# API
+# =====================
 @app.get("/friend/recommend")
 def recommend(user_id: UUID):
-    print("API END")
-    data = recommend_friends(user_id)
     return {
         "user_id": user_id,
-        "recommendations": data
+        "recommendations": recommend_friends(user_id)
     }
+
 
 @app.post("/post/summary")
-def summarize_post (req: SummarizePostRequest):
-    prompts = f"""
-        Bạn là trợ lý tóm tắt nội dung bài viết mạng xã hội.
-        Tóm tắt nội dung sau trong 3–5 dòng, rõ ý, trung lập.
-        Nội dung:
-        {req.content}
+def summarize_post(req: SummarizePostRequest):
+    client = get_llm_client()
+
+    prompt = f"""
+    Bạn là trợ lý tóm tắt nội dung bài viết mạng xã hội.
+    Tóm tắt nội dung sau trong 3–5 dòng, trung lập.
+    Nội dung:
+    {req.content}
     """
 
-    response = client.models.generate_content(
-        model = "gemini-2.5-flash",
-        contents = prompts
+    res = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
     )
 
-    return {
-        "message": "summarize successfully",
-        "data": response.text
-    }
+    return {"data": res.text}
+
 
 @app.post("/post/rewrite")
-def rewrite_post (req: CaptionRequest):
-    prompts = f"""
-        Bạn là trợ lý viết caption cho mạng xã hội.
-        Viết lại caption sau cho tự nhiên, hấp dẫn hơn.
-        Tone: {req.tone}
-        Giữ nguyên ý, không thêm thông tin mới. Chỉ trả về nội dung mới, không hỏi lại người dùng hay đánh giá caption
-        
-        Caption: 
-        {req.caption}
+def rewrite_post(req: CaptionRequest):
+    client = get_llm_client()
+
+    prompt = f"""
+    Viết lại caption cho tự nhiên và hấp dẫn hơn.
+    Tone: {req.tone}
+    Caption:
+    {req.caption}
     """
 
-    response = client.models.generate_content(
-        model = "gemini-2.5-flash",
-        contents = prompts
+    res = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
     )
 
-    return {
-        "message": "Rewrite successfully",
-        "data": response.text
-    }
+    return {"data": res.text}
+
 
 @app.post("/chatbot/qa")
 def ask_chat(req: QuestionRequest):
-    result = answer_question(req.question)
-
-    return result
-
+    return answer_question(req.question)

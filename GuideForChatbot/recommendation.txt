@@ -1,0 +1,10 @@
+Hệ thống gợi ý bạn bè dựa trên mức độ tương tác giữa người dùng.
+
+Các yếu tố chính bao gồm:
+- Số lần xem hồ sơ (profile view)
+- Số lần tìm kiếm người dùng
+- Số lần like hoặc tương tác nội dung
+- Thời điểm tương tác gần nhất
+
+Những người dùng có mức độ tương tác cao và gần đây
+sẽ được ưu tiên xuất hiện trong danh sách gợi ý.

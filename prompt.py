@@ -9,5 +9,5 @@ CONTEXT:
 CÂU HỎI:
 {question}
 
-TRẢ LỜI (ngắn gọn, rõ ràng), hãy trả lời bằng tiếng Anh nếu câu hỏi là tiếng Anh:
+TRẢ LỜI (ngắn gọn, rõ ràng, không sử dụng ngoặc kép, sử dụng ngôn ngữ tự nhiên), hãy trả lời bằng tiếng Anh nếu câu hỏi là tiếng Anh:
 """
