@@ -176,7 +176,7 @@ app.add_middleware(
 # =====================
 # API
 # =====================
-@app.get("/friend/recommend")
+@app.get("/ai/friend/recommend")
 def recommend(user_id: UUID):
     return {
         "user_id": user_id,
@@ -184,7 +184,7 @@ def recommend(user_id: UUID):
     }
 
 
-@app.post("/post/summary")
+@app.post("/ai/post/summary")
 def summarize_post(req: SummarizePostRequest):
     client = get_llm_client()
 
@@ -203,7 +203,7 @@ def summarize_post(req: SummarizePostRequest):
     return {"data": res.text}
 
 
-@app.post("/post/rewrite")
+@app.post("/ai/post/rewrite")
 def rewrite_post(req: CaptionRequest):
     client = get_llm_client()
 
@@ -222,6 +222,6 @@ def rewrite_post(req: CaptionRequest):
     return {"data": res.text}
 
 
-@app.post("/chatbot/qa")
+@app.post("/ai/chatbot/qa")
 def ask_chat(req: QuestionRequest):
     return answer_question(req.question)
