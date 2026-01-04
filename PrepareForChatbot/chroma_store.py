@@ -8,10 +8,6 @@ collection = chroma_client.get_or_create_collection(
     name="chatbot_docs"
 )
 
-collection = chroma_client.get_or_create_collection(
-    name="chatbot_docs"
-)
-
 def save_chunks_to_chroma(chunks: list[str], source: str):
     embeddings = []
     ids = []

@@ -11,7 +11,7 @@ def get_sql_connection():
     if _conn is None:
         _conn = pyodbc.connect(
             f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-            f"SERVER={os.getenv('SQL_SERVER')},1433;"
+            f"SERVER={os.getenv('SQL_SERVER')};"
             f"DATABASE={os.getenv('SQL_DB')};"
             f"UID={os.getenv('SQL_USER')};"
             f"PWD={os.getenv('SQL_PASSWORD')};"
