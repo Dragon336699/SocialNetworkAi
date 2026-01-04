@@ -67,7 +67,7 @@ def get_friend_list(user_id: UUID):
     cursor = sql.cursor()
 
     rows = cursor.execute(
-        "SELECT RelatedUserId FROM UserRelation WHERE user_id = ?",
+        "SELECT RelatedUserId FROM UserRelation WHERE UserId = ?",
         str(user_id)
     ).fetchall()
 

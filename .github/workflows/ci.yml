@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,3 +23,31 @@ jobs:
           pip install -r requirements.txt
       - name: Check syntax
         run: python -m compileall .
+  cd:
+    needs: ci
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: long1409
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & Push image
+        run: |
+          docker build -t long1409/socialnetwork-python:latest .
+          docker push long1409/socialnetwork-python:latest
+      
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 72.62.78.5
+          username: root
+          key: ${{ secrets.VPS_KEY }}
+          script: |
+            cd projects
+            docker compose pull backend-python
+            docker compose up -d backend-python
