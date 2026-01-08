@@ -5,11 +5,11 @@ from cassandra.cluster import Cluster
 from datetime import datetime, timezone
 from math import exp
 from collections import defaultdict
+from Database.database_cassandra import get_cassandra_session
 
 from cassandra.query import BatchStatement
 
-cluster = Cluster(["127.0.0.1"])
-session = cluster.connect("fricon")
+session = get_cassandra_session()
 
 ACTION_WEIGHT = {
     'view': 1,
