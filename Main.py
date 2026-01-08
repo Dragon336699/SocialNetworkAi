@@ -17,6 +17,9 @@ from Requests.QuestionRequest import QuestionRequest
 from PrepareForChatbot.embedding import embed_text
 from PrepareForChatbot.chroma_client import get_chroma_client
 from llm_client import call_llm
+from Services.SuggestPostService import find_user_similar
+from Services.SuggestPostService import get_post_viewed_user
+from Services.SuggestPostService import feed_for_user
 from prompt import QA_PROMPT_TEMPLATE
 
 chroma_client = get_chroma_client()
@@ -223,3 +226,13 @@ def ask_chat(req: QuestionRequest):
 
     return result
 
+@app.post("/ai/postSuggest")
+def get_post_for_users(user_id: UUID):
+    users_similar = find_user_similar(user_id)
+
+    for u, sim in users_similar.items():
+        if sim < 1.5:
+            print("Sim: ", sim)
+            continue
+        posts = get_post_viewed_user(u)
+        feed_for_user(posts, user_id)
