@@ -16,7 +16,6 @@ env/
 *.log
 
 # ===== Model / ML artifacts =====
-*.pkl
 *.joblib
 *.h5
 
