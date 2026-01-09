@@ -46,7 +46,7 @@ session = cluster.connect("fricon")
 
 def get_friend_list(user_id):
     query = """
-    SELECT RelatedUserId FROM UserRelation WHERE user_id = ?
+    SELECT RelatedUserId FROM UserRelation WHERE UserId = ?
     """
     cursor = sql_conn.cursor()
     rows = cursor.execute(query, str(user_id)).fetchall()
